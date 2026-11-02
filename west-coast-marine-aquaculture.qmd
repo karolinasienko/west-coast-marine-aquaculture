@@ -1,0 +1,15 @@
+---
+title: "EDS 223: Homework Assignment 3"
+subtitle: "West Coast Marine Aquaculture"
+author: "Karolina Sienko"
+date: 11-02-2026
+format:
+ pdf:
+  toc: false
+  code-fold: false
+execute:
+ echo: true
+ warning: false
+ message: false
+ results: hide
+---
