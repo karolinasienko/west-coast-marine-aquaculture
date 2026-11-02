@@ -30,7 +30,7 @@ To make your workflow generalizable, you must create a function that has the fol
         * species name should be included in the map's title
 
 
-## Loading in libraries
+### Loading in libraries
 ```{r}
 library(tidyverse)
 library(sf)
@@ -42,7 +42,7 @@ library(viridisLite)
 
 ```
 
-## Loading in and preparing data
+### Loading in and preparing data
 ```{r}
 # Load sea surface temperature data
 sst_2008 <- rast("data/average_annual_sst_2008.tif")
@@ -69,3 +69,32 @@ sst_stack
 st_crs(sst_stack) == st_crs(depth)
 st_crs(depth) == st_crs(eez)
 ```
+
+### Process SST and depth data so that they can be combined
+
+```{r}
+# Need to process SST and depth data so that they can be combined
+
+# SST and depth data have different resolutions, extents, and positions
+
+
+# Average SST from 2008-2012 (create a single raster of avg SST)
+avg_sst <- mean(sst_stack)
+# Convert average SST from K to C (subtract by 273.15)
+avg_sst_C <- avg_sst - 273.15
+
+# Crop depth raster to match the extent of the SST raster
+depth_cropped <- crop(depth, avg_sst_C)
+
+# Need to match resolutions of SST and depth
+# Resample depth to match res of SST using bilinear method approach
+depth_resampled <- resample(depth_cropped, avg_sst_C, method = 'bilinear')
+
+# Checking if res, CRS, and extent match in depth and SST - returns TRUE
+cat("After resampling depth data:\n")
+cat("Resolutions match:", all(res(avg_sst_C) == res(depth_resampled)), "\n")
+cat("CRS match:    ", all(st_crs(avg_sst_C) ==
+                               st_crs(depth_resampled)), "\n")
+cat("Extents match:    ", ext(avg_sst_C) == ext(depth_resampled), "\n")
+```
+
