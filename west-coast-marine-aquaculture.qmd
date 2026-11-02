@@ -96,5 +96,120 @@ cat("Resolutions match:", all(res(avg_sst_C) == res(depth_resampled)), "\n")
 cat("CRS match:    ", all(st_crs(avg_sst_C) ==
                                st_crs(depth_resampled)), "\n")
 cat("Extents match:    ", ext(avg_sst_C) == ext(depth_resampled), "\n")
+
+
+# Now stack?
+
 ```
 
+### Find suitable locations
+To find suitable locations for marine aquaculture, we’ll need to find locations that are suitable in terms of both SST and depth.
+
+* reclassify SST and depth data into locations that are suitable for oysters
+    * hint: set suitable values to 1 and unsuitable values to 0
+* find locations that satisfy both SST and depth conditions
+
+
+Suitable growing conditions for oysters:
+* SST: 11-30 deg C
+* depth: 0-70 m below sea level
+
+Suitable growing conditions for California Spiny Lobster:
+* SST: 10-21 deg C
+* depth: 0-150 m below sea level
+
+
+```{r}
+# Reclassifying SST and depth data into suitable locations for oysters
+# suitable values = 1, not suitable = 0
+# reclassify is left-inclusive and right-exclusive
+
+# SST reclassification
+rcl_sst_oyster <- matrix(c(
+    -Inf, 11, 0,
+    11, 30, 1,
+    30, Inf, 0
+), ncol = 3, byrow = TRUE)
+
+oyster_sst_zones <- as.factor(classify(avg_sst_C, rcl = rcl_sst_oyster))
+
+# Depth reclassification
+rcl_depth_oyster <- matrix(c(
+    -Inf, -70, 0,
+    -70, 0, 1,
+    0, Inf, 0
+), ncol = 3, byrow = TRUE)
+
+oyster_depth_zones <- as.factor(classify(depth_cropped, rcl = rcl_depth_oyster))
+```
+
+```{r}
+# Reclassifying SST and depth data into suitable locations for lobsters
+# suitable values = 1, not suitable = 0
+# reclassify is left-inclusive and right-exclusive
+
+# SST reclassification
+rcl_sst_lobster <- matrix(c(
+    -Inf, 10, 0,
+    10, 21, 1,
+    21, Inf, 0
+), ncol = 3, byrow = TRUE)
+
+lobster_sst_zones <- as.factor(classify(avg_sst_C, rcl = rcl_sst_lobster))
+
+# Depth reclassification
+rcl_depth_lobster <- matrix(c(
+    -Inf, -150, 0,
+    -150, 0, 1,
+    0, Inf, 0
+), ncol = 3, byrow = TRUE)
+
+lobster_depth_zones <- as.factor(classify(depth_cropped, rcl = rcl_depth_lobster))
+```
+
+Finding locations that satisfy both SST and depth conditions
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# Checking suitable oyster SST zones with maps
+map1 <- tm_shape(avg_sst_C) +
+  tm_raster(col.legend = tm_legend("SST (C)",
+                                    position = tm_pos_out("right", "center"))) +
+  tm_title("Avg SST (C)")
+
+map2 <- tm_shape(oyster_sst_zones) +
+  tm_raster(col.legend = tm_legend("Oyster SST Zones",
+                                    position = tm_pos_out("right", "center"))) +
+  tm_title("Suitable Zones")
+
+tmap_arrange(map1, map2, nrow = 1)
+```
+
+```{r}
+# Checking suitable oyster depth zones with maps
+map1 <- tm_shape(depth_cropped) +
+  tm_raster(col.legend = tm_legend("Depth (m)",
+                                    position = tm_pos_out("right", "center"))) +
+  tm_title("Depth (m)")
+
+map2 <- tm_shape(oyster_depth_zones) +
+  tm_raster(col.legend = tm_legend("Oyster Depth Zones",
+                                    position = tm_pos_out("right", "center"))) +
+  tm_title("Suitable Zones")
+
+tmap_arrange(map1, map2, nrow = 1)
+```
