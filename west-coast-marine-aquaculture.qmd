@@ -14,36 +14,23 @@ execute:
  results: hide
 ---
 
-## Description
-
-For this assignment, you are tasked with determining which Exclusive Economic Zones (EEZ) on the West Coast of the US are best suited to developing marin aquaculture for serveral species of oysters **and** and a species of your choice. Suitable locations will be determined based on range of suitable sea surface temperature (SST) and depth values for the species.
-
-To make your workflow generalizable, you must create a function that has the following characteristics:
-
-* **arguments**:
-    * minimum and maximum SST
-    * minimum and maximum depth
-    * species name
-
-* **outputs**:
-    * map of EEZ regions colored by amount of suitable area
-        * species name should be included in the map's title
-
-
-### Loading in libraries
+# 1. Load in libraries
 ```{r}
+#| message: false
+#| warning: false
+
 library(tidyverse)
 library(sf)
 library(terra) # raster handling
 library(tmap) # map making
-library(spData) # spatial data
-library(spDataLarge) # spatial data
 library(viridisLite)
-
 ```
 
-### Loading in and preparing data
+# 2. Load in and prepare data
 ```{r}
+#| message: false
+#| results: hide
+
 # Load sea surface temperature data
 sst_2008 <- rast("data/average_annual_sst_2008.tif")
 sst_2009 <- rast("data/average_annual_sst_2009.tif")
@@ -56,160 +43,143 @@ depth <- rast("data/depth.tif")
 
 # Load EEZ data
 eez <- st_read("data/wc_regions_clean.shp")
-```
 
-```{r}
 # Combining SST rasters into a raster stack
 sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
-sst_stack
 ```
 
-```{r}
-# Checking that datasets have the same CRS - they all do
-st_crs(sst_stack) == st_crs(depth)
-st_crs(depth) == st_crs(eez)
-```
-
-### Process SST and depth data so that they can be combined
+# 3. Process SST and depth data so that they can be combined
 
 ```{r}
-# Need to process SST and depth data so that they can be combined
-
-# SST and depth data have different resolutions, extents, and positions
-
-
-# Average SST from 2008-2012 (create a single raster of avg SST)
-avg_sst <- mean(sst_stack)
-# Convert average SST from K to C (subtract by 273.15)
-avg_sst_C <- avg_sst - 273.15
+# Average SST from 2008-2012 and convert from C to Kelvin
+avg_sst_C <- mean(sst_stack) - 273.15
 
 # Crop depth raster to match the extent of the SST raster
-depth_cropped <- crop(depth, avg_sst_C)
+#depth_cropped <- crop(depth, avg_sst_C)
 
-# Need to match resolutions of SST and depth
+
 # Resample depth to match res of SST using bilinear method approach
-depth_resampled <- resample(depth_cropped, avg_sst_C, method = 'bilinear')
-
-# Checking if res, CRS, and extent match in depth and SST - returns TRUE
-cat("After resampling depth data:\n")
-cat("Resolutions match:", all(res(avg_sst_C) == res(depth_resampled)), "\n")
-cat("CRS match:    ", all(st_crs(avg_sst_C) ==
-                               st_crs(depth_resampled)), "\n")
-cat("Extents match:    ", ext(avg_sst_C) == ext(depth_resampled), "\n")
+depth_resampled <- resample(depth, avg_sst_C, method = 'bilinear')
 
 
-# Now stack?
+# Checking and converting depth to match SST resolution, extent, and CRS
+if (all(res(avg_sst_C) == res(depth_resampled))){
+    print("The resolutions match!")
+    } else {
+        warning("Update resolutions to match!")
+        res(depth_resampled) <- res(avg_sst_C)
+        }
+        
 
+if (ext(avg_sst_C) == ext(depth_resampled)){
+    print("The extents match!")
+    } else {
+        warning("Update extents to match!")
+        ext(depth_resampled) <- ext(avg_sst_C)
+        }
+
+if (same.crs(depth_resampled, avg_sst_C)){
+    print("The coordinate reference systems match!")
+    } else {
+        warning("Update coordinate reference systems to match!")
+        crs(depth_resampled) <- crs(avg_sst_C)
+        }
 ```
 
-### Find suitable locations
-To find suitable locations for marine aquaculture, we’ll need to find locations that are suitable in terms of both SST and depth.
-
-* reclassify SST and depth data into locations that are suitable for oysters
-    * hint: set suitable values to 1 and unsuitable values to 0
-* find locations that satisfy both SST and depth conditions
-
+# 4. Find suitable locations
 
 Suitable growing conditions for oysters:
+
 * SST: 11-30 deg C
+
 * depth: 0-70 m below sea level
 
 Suitable growing conditions for California Spiny Lobster:
+
 * SST: 10-21 deg C
+
 * depth: 0-150 m below sea level
 
 
-```{r}
-# Reclassifying SST and depth data into suitable locations for oysters
-# suitable values = 1, not suitable = 0
-# reclassify is left-inclusive and right-exclusive
 
-# SST reclassification
+### Reclassifying SST and depth data into suitable locations
+```{r}
+# SST reclassification matrix
 rcl_sst_oyster <- matrix(c(
     -Inf, 11, 0,
     11, 30, 1,
     30, Inf, 0
 ), ncol = 3, byrow = TRUE)
 
-oyster_sst_zones <- as.factor(classify(avg_sst_C, rcl = rcl_sst_oyster))
+oyster_sst_zones <- classify(avg_sst_C, rcl = rcl_sst_oyster)
 
-# Depth reclassification
+# Depth reclassification matrix
 rcl_depth_oyster <- matrix(c(
     -Inf, -70, 0,
     -70, 0, 1,
     0, Inf, 0
 ), ncol = 3, byrow = TRUE)
 
-oyster_depth_zones <- as.factor(classify(depth_cropped, rcl = rcl_depth_oyster))
-```
-
-```{r}
-# Reclassifying SST and depth data into suitable locations for lobsters
-# suitable values = 1, not suitable = 0
-# reclassify is left-inclusive and right-exclusive
-
-# SST reclassification
-rcl_sst_lobster <- matrix(c(
-    -Inf, 10, 0,
-    10, 21, 1,
-    21, Inf, 0
-), ncol = 3, byrow = TRUE)
-
-lobster_sst_zones <- as.factor(classify(avg_sst_C, rcl = rcl_sst_lobster))
-
-# Depth reclassification
-rcl_depth_lobster <- matrix(c(
-    -Inf, -150, 0,
-    -150, 0, 1,
-    0, Inf, 0
-), ncol = 3, byrow = TRUE)
-
-lobster_depth_zones <- as.factor(classify(depth_cropped, rcl = rcl_depth_lobster))
-```
-
-Finding locations that satisfy both SST and depth conditions
-```{r}
-
+# Reclassifying
+oyster_depth_zones <- classify(depth_resampled, rcl = rcl_depth_oyster)
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
+### Finding locations that satisfy both SST and depth conditions using `lapp()`
 ```{r}
-# Checking suitable oyster SST zones with maps
-map1 <- tm_shape(avg_sst_C) +
-  tm_raster(col.legend = tm_legend("SST (C)",
-                                    position = tm_pos_out("right", "center"))) +
-  tm_title("Avg SST (C)")
+# Adding oyster zone rasters
+oyster_zones <- c(oyster_sst_zones, oyster_depth_zones)
 
-map2 <- tm_shape(oyster_sst_zones) +
-  tm_raster(col.legend = tm_legend("Oyster SST Zones",
-                                    position = tm_pos_out("right", "center"))) +
-  tm_title("Suitable Zones")
-
-tmap_arrange(map1, map2, nrow = 1)
+# Finding locations that satisfy both SST and depth conditions
+oyster_suitability <- lapp(oyster_zones, function(sst, depth) sst*depth)
 ```
 
+
+# 5. Determine the most suitable EEZ
+
+We want to determine the total suitable area within each EEZ in order to rank zones by priority. To do so, we need to find the total area of suitable locations within each EEZ.
 ```{r}
-# Checking suitable oyster depth zones with maps
-map1 <- tm_shape(depth_cropped) +
-  tm_raster(col.legend = tm_legend("Depth (m)",
-                                    position = tm_pos_out("right", "center"))) +
-  tm_title("Depth (m)")
+# Making EEZ crs equal oyster_suitability CRS
+sf::st_crs(eez) <- terra::crs(oyster_suitability)
 
-map2 <- tm_shape(oyster_depth_zones) +
-  tm_raster(col.legend = tm_legend("Oyster Depth Zones",
-                                    position = tm_pos_out("right", "center"))) +
-  tm_title("Suitable Zones")
+# Converting sf object to terra SpatVector
+eez_vect <- terra::vect(eez)
 
-tmap_arrange(map1, map2, nrow = 1)
+# Rasterizing EEZ data
+eez_raster <- rasterize(eez_vect, oyster_suitability, field = 'rgn_id')
+
+# Calculating area of each cell
+cell_sizes <- cellSize(oyster_suitability, unit = "km", mask = TRUE)
+
+# Making sure only cells classified as 1 contribute to area totals
+suitable_area <- mask(cell_sizes, oyster_suitability, maskvalues = 0)
+
+# Selecting suitable raster cells that fall within each EEZs region
+
+suitable_area_by_eez <- zonal(
+    suitable_area, 
+    eez_raster, 
+    fun = 'sum', 
+    na.rm = TRUE
+    )
+
+```
+
+# 6. Creating a map of EEZ regions colored by amount of suitable area
+```{r}
+# Converting zonal results to a data frame
+suitable_area_df <- as_tibble(suitable_area_by_eez)
+
+# Joining suitable area to EEZ polygons
+eez_map <- left_join(eez, suitable_area_df)
+
+# Creating map
+tm_shape(eez_map) +
+    tm_fill(
+        fill = "area",
+        fill.legend = tm_legend(title = "Suitable Area (km^2)"),
+        fill.scale = tm_scale_continuous()
+    ) +
+    tm_borders(lwd = .8) +
+    tm_title("Suitable Oyster Habitat by EEZ", fontface = 'bold')
 ```
