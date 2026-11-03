@@ -41,13 +41,13 @@ sst_2011 <- rast("data/average_annual_sst_2011.tif")
 sst_2012 <- rast("data/average_annual_sst_2012.tif")
 
 # Load ocean depth data
-depth <- rast("data/depth.tif")
+depth <- rast("data/depth.tif") # raster
 
 # Load EEZ data
-eez <- st_read("data/wc_regions_clean.shp")
+eez <- st_read("data/wc_regions_clean.shp") # vector
 
 # Combining SST rasters into a raster stack
-sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012) # raster
 ```
 
 
@@ -63,7 +63,7 @@ suitable_areas <- function(
 ) {
   ## Process SST and depth data so that they can be combined
   # Average SST from 2008-2012 and convert from C to Kelvin
-  avg_sst_C <- mean(sst_stack) - 273.15
+  avg_sst_C <- mean(sst_stack, na.rm = TRUE) - 273.15
 
   # Resample depth to match res and extent of SST using bilinear method approach
   depth_resampled <- resample(depth, avg_sst_C, method = 'bilinear')
@@ -83,32 +83,23 @@ suitable_areas <- function(
     ext(depth_resampled) <- ext(avg_sst_C)
   }
 
-  if (same.crs(depth_resampled, avg_sst_C)) {
+  if (crs(depth_resampled) == crs(avg_sst_C)) {
     print("The coordinate reference systems match!")
   } else {
     warning("Update coordinate reference systems to match!")
     crs(depth_resampled) <- crs(avg_sst_C)
+    if (crs(depth_resampled) == crs(avg_sst_C)) {
+      print("The coordinate reference systems now match!")}
   }
-
-  # Assign SST CRS to resampled depth raster
-  # Need to add this even though CRSs are equivalent, because terra is
-  # comparing the CRS descriptions internally
-  crs(depth_resampled) <- crs(avg_sst_C)
 
   ## Find suitable locations
   # Reclassifying SST and depth data into suitable locations
   # SST reclassification matrix
   rcl_sst <- matrix(
     c(
-      -Inf,
-      min_sst,
-      0,
-      min_sst,
-      max_sst,
-      1,
-      max_sst,
-      Inf,
-      0
+      -Inf, min_sst, 0,
+      min_sst, max_sst, 1,
+      max_sst, Inf, 0
     ),
     ncol = 3,
     byrow = TRUE
@@ -120,15 +111,9 @@ suitable_areas <- function(
   # Depth reclassification matrix
   rcl_depth <- matrix(
     c(
-      -Inf,
-      max_depth,
-      0, # should max_depth be negative?
-      max_depth,
-      min_depth,
-      1,
-      min_depth,
-      Inf,
-      0
+      -Inf, max_depth, 0, # should max_depth be negative?
+      max_depth, min_depth, 1,
+      min_depth, Inf, 0
     ),
     ncol = 3,
     byrow = TRUE
@@ -172,38 +157,32 @@ suitable_areas <- function(
   # Converting zonal results to a data frame
   suitable_area_df <- as_tibble(suitable_area_by_eez)
 
+
   # Joining suitable area to EEZ polygons
-  eez_map <- left_join(eez, suitable_area_df)
+  eez_map <- left_join(eez, suitable_area_df, by = "rgn_id")
 
   # Creating map
   tm_shape(eez_map) +
+    tm_basemap("OpenStreetMap") +
     tm_fill(
       fill = "area",
-      fill.legend = tm_legend(title = "Suitable Area (km^2)"),
-      fill.scale = tm_scale_continuous()
+      fill.legend = tm_legend(title = "Suitable Area (km^2)")
     ) +
+    tmap_options(component.autoscale = FALSE) +
     tm_borders(lwd = .8) +
-    tm_title(paste("Suitable", species_name, "Habitats by West Coast EEZ"))
+    tm_title(paste("Suitable", species_name, "Habitats by West Coast EEZ"), size = 1)
 }
 ```
 
 
 # Optimal growth conditions for oysters & lobsters
 
-Oysters:
+Oysters: 11-30 deg C and 0-70 m below sea level
 
-* SST: 11-30 deg C
-
-* depth: 0-70 m below sea level
-
-California Spiny Lobster:
-
-* SST: 10-21 deg C
-
-* depth: 0-150 m below sea level
+California Spiny Lobster: 10-21 deg C and depth: 0-150 m below sea level
 
 
-Testing the function:
+# Testing the function:
 ```{r}
 suitable_areas(11, 30, 0, -70, 'Oyster')
 suitable_areas(10, 21, 0, -150, 'Lobster')
