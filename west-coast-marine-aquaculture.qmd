@@ -14,6 +14,7 @@ execute:
  results: hide
 ---
 
+
 # 1. Load in libraries
 ```{r}
 #| message: false
@@ -25,6 +26,7 @@ library(terra) # raster handling
 library(tmap) # map making
 library(viridisLite)
 ```
+
 
 # 2. Load in and prepare data
 ```{r}
@@ -48,138 +50,161 @@ eez <- st_read("data/wc_regions_clean.shp")
 sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
 ```
 
-# 3. Process SST and depth data so that they can be combined
+
+# Function!!!
 
 ```{r}
-# Average SST from 2008-2012 and convert from C to Kelvin
-avg_sst_C <- mean(sst_stack) - 273.15
+suitable_areas <- function(
+  min_sst,
+  max_sst,
+  min_depth,
+  max_depth,
+  species_name
+) {
+  ## Process SST and depth data so that they can be combined
+  # Average SST from 2008-2012 and convert from C to Kelvin
+  avg_sst_C <- mean(sst_stack) - 273.15
 
-# Crop depth raster to match the extent of the SST raster
-#depth_cropped <- crop(depth, avg_sst_C)
+  # Resample depth to match res and extent of SST using bilinear method approach
+  depth_resampled <- resample(depth, avg_sst_C, method = 'bilinear')
 
-
-# Resample depth to match res of SST using bilinear method approach
-depth_resampled <- resample(depth, avg_sst_C, method = 'bilinear')
-
-
-# Checking and converting depth to match SST resolution, extent, and CRS
-if (all(res(avg_sst_C) == res(depth_resampled))){
+  # Checking and converting depth to match SST resolution, extent, and CRS
+  if (all(res(avg_sst_C) == res(depth_resampled))) {
     print("The resolutions match!")
-    } else {
-        warning("Update resolutions to match!")
-        res(depth_resampled) <- res(avg_sst_C)
-        }
-        
+  } else {
+    warning("Update resolutions to match!")
+    res(depth_resampled) <- res(avg_sst_C)
+  }
 
-if (ext(avg_sst_C) == ext(depth_resampled)){
+  if (ext(avg_sst_C) == ext(depth_resampled)) {
     print("The extents match!")
-    } else {
-        warning("Update extents to match!")
-        ext(depth_resampled) <- ext(avg_sst_C)
-        }
+  } else {
+    warning("Update extents to match!")
+    ext(depth_resampled) <- ext(avg_sst_C)
+  }
 
-if (same.crs(depth_resampled, avg_sst_C)){
+  if (same.crs(depth_resampled, avg_sst_C)) {
     print("The coordinate reference systems match!")
-    } else {
-        warning("Update coordinate reference systems to match!")
-        crs(depth_resampled) <- crs(avg_sst_C)
-        }
+  } else {
+    warning("Update coordinate reference systems to match!")
+    crs(depth_resampled) <- crs(avg_sst_C)
+  }
+
+  # Assign SST CRS to resampled depth raster
+  # Need to add this even though CRSs are equivalent, because terra is
+  # comparing the CRS descriptions internally
+  crs(depth_resampled) <- crs(avg_sst_C)
+
+  ## Find suitable locations
+  # Reclassifying SST and depth data into suitable locations
+  # SST reclassification matrix
+  rcl_sst <- matrix(
+    c(
+      -Inf,
+      min_sst,
+      0,
+      min_sst,
+      max_sst,
+      1,
+      max_sst,
+      Inf,
+      0
+    ),
+    ncol = 3,
+    byrow = TRUE
+  )
+
+  # Reclassifying sst
+  sst_zones <- classify(avg_sst_C, rcl = rcl_sst)
+
+  # Depth reclassification matrix
+  rcl_depth <- matrix(
+    c(
+      -Inf,
+      max_depth,
+      0, # should max_depth be negative?
+      max_depth,
+      min_depth,
+      1,
+      min_depth,
+      Inf,
+      0
+    ),
+    ncol = 3,
+    byrow = TRUE
+  )
+
+  # Reclassifying depth
+  depth_zones <- classify(depth_resampled, rcl = rcl_depth)
+
+  # Finding locations that satisfy both SST and depth conditions
+  # Adding oyster zone rasters
+  sst_depth_zones <- c(sst_zones, depth_zones)
+
+  # Finding locations that satisfy both SST and depth conditions
+  suitable_locs <- lapp(sst_depth_zones, function(sst, depth) sst * depth)
+
+  ## Determine the total suitable area within each EEZ
+  # Making EEZ crs equal oyster_suitability CRS
+  sf::st_crs(eez) <- terra::crs(suitable_locs)
+
+  # Converting sf object to terra SpatVector
+  eez_vect <- terra::vect(eez)
+
+  # Rasterizing EEZ data
+  eez_raster <- rasterize(eez_vect, suitable_locs, field = 'rgn_id')
+
+  # Calculating area of each cell
+  cell_sizes <- cellSize(suitable_locs, unit = "km", mask = TRUE)
+
+  # Making sure only cells classified as 1 contribute to area totals
+  suitable_area <- mask(cell_sizes, suitable_locs, maskvalues = 0)
+
+  # Selecting suitable raster cells that fall within each EEZs region
+  suitable_area_by_eez <- zonal(
+    suitable_area,
+    eez_raster,
+    fun = 'sum',
+    na.rm = TRUE
+  )
+
+  ## Mapping EEZ regions colored by amount of suitable area
+  # Converting zonal results to a data frame
+  suitable_area_df <- as_tibble(suitable_area_by_eez)
+
+  # Joining suitable area to EEZ polygons
+  eez_map <- left_join(eez, suitable_area_df)
+
+  # Creating map
+  tm_shape(eez_map) +
+    tm_fill(
+      fill = "area",
+      fill.legend = tm_legend(title = "Suitable Area (km^2)"),
+      fill.scale = tm_scale_continuous()
+    ) +
+    tm_borders(lwd = .8) +
+    tm_title(paste("Suitable", species_name, "Habitats by West Coast EEZ"))
+}
 ```
 
-# 4. Find suitable locations
 
-Suitable growing conditions for oysters:
+# Optimal growth conditions for oysters & lobsters
+
+Oysters:
 
 * SST: 11-30 deg C
 
 * depth: 0-70 m below sea level
 
-Suitable growing conditions for California Spiny Lobster:
+California Spiny Lobster:
 
 * SST: 10-21 deg C
 
 * depth: 0-150 m below sea level
 
 
-
-### Reclassifying SST and depth data into suitable locations
+Testing the function:
 ```{r}
-# SST reclassification matrix
-rcl_sst_oyster <- matrix(c(
-    -Inf, 11, 0,
-    11, 30, 1,
-    30, Inf, 0
-), ncol = 3, byrow = TRUE)
-
-oyster_sst_zones <- classify(avg_sst_C, rcl = rcl_sst_oyster)
-
-# Depth reclassification matrix
-rcl_depth_oyster <- matrix(c(
-    -Inf, -70, 0,
-    -70, 0, 1,
-    0, Inf, 0
-), ncol = 3, byrow = TRUE)
-
-# Reclassifying
-oyster_depth_zones <- classify(depth_resampled, rcl = rcl_depth_oyster)
-```
-
-
-### Finding locations that satisfy both SST and depth conditions using `lapp()`
-```{r}
-# Adding oyster zone rasters
-oyster_zones <- c(oyster_sst_zones, oyster_depth_zones)
-
-# Finding locations that satisfy both SST and depth conditions
-oyster_suitability <- lapp(oyster_zones, function(sst, depth) sst*depth)
-```
-
-
-# 5. Determine the most suitable EEZ
-
-We want to determine the total suitable area within each EEZ in order to rank zones by priority. To do so, we need to find the total area of suitable locations within each EEZ.
-```{r}
-# Making EEZ crs equal oyster_suitability CRS
-sf::st_crs(eez) <- terra::crs(oyster_suitability)
-
-# Converting sf object to terra SpatVector
-eez_vect <- terra::vect(eez)
-
-# Rasterizing EEZ data
-eez_raster <- rasterize(eez_vect, oyster_suitability, field = 'rgn_id')
-
-# Calculating area of each cell
-cell_sizes <- cellSize(oyster_suitability, unit = "km", mask = TRUE)
-
-# Making sure only cells classified as 1 contribute to area totals
-suitable_area <- mask(cell_sizes, oyster_suitability, maskvalues = 0)
-
-# Selecting suitable raster cells that fall within each EEZs region
-
-suitable_area_by_eez <- zonal(
-    suitable_area, 
-    eez_raster, 
-    fun = 'sum', 
-    na.rm = TRUE
-    )
-
-```
-
-# 6. Creating a map of EEZ regions colored by amount of suitable area
-```{r}
-# Converting zonal results to a data frame
-suitable_area_df <- as_tibble(suitable_area_by_eez)
-
-# Joining suitable area to EEZ polygons
-eez_map <- left_join(eez, suitable_area_df)
-
-# Creating map
-tm_shape(eez_map) +
-    tm_fill(
-        fill = "area",
-        fill.legend = tm_legend(title = "Suitable Area (km^2)"),
-        fill.scale = tm_scale_continuous()
-    ) +
-    tm_borders(lwd = .8) +
-    tm_title("Suitable Oyster Habitat by EEZ", fontface = 'bold')
+suitable_areas(11, 30, 0, -70, 'Oyster')
+suitable_areas(10, 21, 0, -150, 'Lobster')
 ```
