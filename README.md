@@ -3,7 +3,7 @@
 
 ![Oyster farm](images/oyster.jpg)
 <p align="center">
-  <em>[Oyster Farm](https://unsplash.com/photos/underwater-oyster-farm-in-clear-turquoise-water-2bM0dDbaXIM)</em>
+  <em><a href="https://unsplash.com/photos/underwater-oyster-farm-in-clear-turquoise-water-2bM0dDbaXIM">Oyster Farm</a></em>
 </p>
 
 ## Purpose of this Repository
