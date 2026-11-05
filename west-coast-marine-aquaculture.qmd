@@ -83,7 +83,7 @@ sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012) # raster
   }
 ```
 
-# 4. Function to find suitable 
+# 4. Function to find suitable areas for different species
 
 ```{r}
 suitable_areas <- function(
@@ -159,7 +159,7 @@ suitable_areas <- function(
   # Converting zonal results to a data frame
   suitable_area_df <- as_tibble(suitable_area_by_eez)
 
-
+print(suitable_area_df)
   # Joining suitable area to EEZ polygons
   eez_map <- left_join(eez, suitable_area_df, by = "rgn_id")
 
@@ -172,22 +172,32 @@ suitable_areas <- function(
     ) +
     tmap_options(component.autoscale = FALSE) +
     tm_borders(lwd = .8) +
-    tm_title(paste("Suitable", species_name, "Habitats by West Coast EEZ"), size = 1) +
+    tm_title(paste(
+      "Suitable", 
+      species_name, 
+      "Habitats by West Coast EEZ"), 
+      size = 1
+      ) +
     tm_scalebar(text.size = .5, position = c("bottom", "left")) +
     tm_compass(position = c("top", "right"))
 }
 ```
 
 
-# Optimal growth conditions for oysters & lobsters
 
-Oysters: 11-30 deg C and 0-70 m below sea level
+# Testing the function for oysters
 
-California Spiny Lobster: 10-21 deg C and depth: 0-150 m below sea level
-
-
-# Testing the function:
 ```{r}
 suitable_areas(11, 30, 0, -70, 'Oyster')
+```
+
+The optimal growth conditions for oysters are 11-30 deg C and 0-70 m below sea level. The resulting map shows that the Central California EEZ has the greatest amount of suitable area for the growth of these oysters, with  a total of 4,374 km^2. Northern California has the least amount of suitable area, with a total of 324 km^2.
+
+
+# Testing the function for California spiny lobsters
+
+```{r}
 suitable_areas(10, 21, 0, -150, 'Lobster')
 ```
+
+The optimal growth conditions for California spiny lobster are 10-21 deg C and 0-150 m below sea level. The resulting map shows that the Oregon EEZ has the greatest amount of suitable area for the growth of these lobsters, with  a total of 13,578 km^2. Northern California has the least amount of suitable area, with a total of 6,870 km^2.
