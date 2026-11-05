@@ -2,7 +2,9 @@
 
 
 ![Oyster farm](images/oyster.jpg)
-[Oyster Farm](https://unsplash.com/photos/underwater-oyster-farm-in-clear-turquoise-water-2bM0dDbaXIM)
+<p align="center">
+  <em>[Oyster Farm](https://unsplash.com/photos/underwater-oyster-farm-in-clear-turquoise-water-2bM0dDbaXIM)</em>
+</p>
 
 ## Purpose of this Repository
 This repository is for Homework 3 for EDS 223: Geospatial Analysis & Remote Sensing. The analysis determines which Exclusive Economic Zones (EEZ) on the West Coast of the US are best suited to developing marine aquaculture for oysters and California spiny lobsters. Suitable locations were determined based on a range of suitable sea surface temperatures (SST) and depth values for each respective species. A function was created to generalize the work flow for any species and intakes minimum/maximum SST, minimum/maximum depth, and the name of the species. The output is a map of EEZ regions colored by the amount of suitable area in each.
