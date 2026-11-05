@@ -39,10 +39,12 @@ This repository is for Homework 3 for EDS 223: Geospatial Analysis & Remote Sens
 ## Data Information & Access
 
 **Suitable Growing Conditions for Marine Life**
+
 This analysis focuses on suitable growing conditions for oysters and . Information on species depth and temperature requirements was found on [SeaLifeBase](https://www.sealifebase.ca/search.php).
 
 
 **Sea Surface Temperature**
+
 We used average annual sea surface temperature (SST) from 2008-2012 to characterize the average SST within the region. The data we worked with was originally from [NOAA’s 5km Daily Global Satellite Sea Surface Temperature Anomaly v3.1](https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php).
 
 Data files:
@@ -54,6 +56,7 @@ Data files:
 
 
 **Bathymetry**
+
 To characterize the depth of the ocean we used the [General Bathymetric Chart of the Oceans (GEBCO)](https://www.gebco.net/data-products/gridded-bathymetry-data#area).
 
 Data file: 
