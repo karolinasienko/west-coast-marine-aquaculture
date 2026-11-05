@@ -55,7 +55,7 @@ sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012) # raster
   # Average SST from 2008-2012 and convert from C to Kelvin
   avg_sst_C <- mean(sst_stack, na.rm = TRUE) - 273.15
 
-  # Resample depth to match res and extent of SST using bilinear method approach
+  # Resample depth to match res and extent of SST
   depth_resampled <- resample(depth, avg_sst_C, method = 'bilinear')
 
   # Checking and converting depth to match SST resolution, extent, and CRS
@@ -159,7 +159,6 @@ suitable_areas <- function(
   # Converting zonal results to a data frame
   suitable_area_df <- as_tibble(suitable_area_by_eez)
 
-print(suitable_area_df)
   # Joining suitable area to EEZ polygons
   eez_map <- left_join(eez, suitable_area_df, by = "rgn_id")
 
