@@ -24,7 +24,6 @@ library(tidyverse)
 library(sf)
 library(terra) # raster handling
 library(tmap) # map making
-library(viridisLite)
 ```
 
 
@@ -51,17 +50,8 @@ sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012) # raster
 ```
 
 
-# Function!!!
-
+# 3. Process SST and depth data so that they can be combined
 ```{r}
-suitable_areas <- function(
-  min_sst,
-  max_sst,
-  min_depth,
-  max_depth,
-  species_name
-) {
-  ## Process SST and depth data so that they can be combined
   # Average SST from 2008-2012 and convert from C to Kelvin
   avg_sst_C <- mean(sst_stack, na.rm = TRUE) - 273.15
 
@@ -88,9 +78,21 @@ suitable_areas <- function(
   } else {
     warning("Update coordinate reference systems to match!")
     crs(depth_resampled) <- crs(avg_sst_C)
-    if (crs(depth_resampled) == crs(avg_sst_C)) {
-      print("The coordinate reference systems now match!")}
+    # if (crs(depth_resampled) == crs(avg_sst_C)) {
+    #   print("The coordinate reference systems now match!")}
   }
+```
+
+# 4. Function to find suitable 
+
+```{r}
+suitable_areas <- function(
+  min_sst,
+  max_sst,
+  min_depth,
+  max_depth,
+  species_name
+) {
 
   ## Find suitable locations
   # Reclassifying SST and depth data into suitable locations
@@ -170,7 +172,9 @@ suitable_areas <- function(
     ) +
     tmap_options(component.autoscale = FALSE) +
     tm_borders(lwd = .8) +
-    tm_title(paste("Suitable", species_name, "Habitats by West Coast EEZ"), size = 1)
+    tm_title(paste("Suitable", species_name, "Habitats by West Coast EEZ"), size = 1) +
+    tm_scalebar(text.size = .5, position = c("bottom", "left")) +
+    tm_compass(position = c("top", "right"))
 }
 ```
 
