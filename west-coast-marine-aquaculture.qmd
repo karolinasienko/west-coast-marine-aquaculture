@@ -2,7 +2,7 @@
 title: "EDS 223: Homework Assignment 3"
 subtitle: "West Coast Marine Aquaculture"
 author: "Karolina Sienko"
-date: 11-02-2026
+date: last-modified
 format:
  pdf:
   toc: false
@@ -78,8 +78,6 @@ sst_stack <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012) # raster
   } else {
     warning("Update coordinate reference systems to match!")
     crs(depth_resampled) <- crs(avg_sst_C)
-    # if (crs(depth_resampled) == crs(avg_sst_C)) {
-    #   print("The coordinate reference systems now match!")}
   }
 ```
 
@@ -94,7 +92,7 @@ suitable_areas <- function(
   species_name
 ) {
 
-  ## Find suitable locations
+  # --- Find suitable locations
   # Reclassifying SST and depth data into suitable locations
   # SST reclassification matrix
   rcl_sst <- matrix(
@@ -124,14 +122,14 @@ suitable_areas <- function(
   # Reclassifying depth
   depth_zones <- classify(depth_resampled, rcl = rcl_depth)
 
-  # Finding locations that satisfy both SST and depth conditions
+  # --- Finding locations that satisfy both SST and depth conditions
   # Adding oyster zone rasters
   sst_depth_zones <- c(sst_zones, depth_zones)
 
   # Finding locations that satisfy both SST and depth conditions
   suitable_locs <- lapp(sst_depth_zones, function(sst, depth) sst * depth)
 
-  ## Determine the total suitable area within each EEZ
+  # --- Determine the total suitable area within each EEZ
   # Making EEZ crs equal oyster_suitability CRS
   sf::st_crs(eez) <- terra::crs(suitable_locs)
 
@@ -155,7 +153,7 @@ suitable_areas <- function(
     na.rm = TRUE
   )
 
-  ## Mapping EEZ regions colored by amount of suitable area
+  # --- Mapping EEZ regions colored by amount of suitable area
   # Converting zonal results to a data frame
   suitable_area_df <- as_tibble(suitable_area_by_eez)
 
